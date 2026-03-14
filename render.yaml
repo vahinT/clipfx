@@ -1,7 +1,5 @@
 services:
   - type: web
     name: clipfx
-    env: python
-    buildCommand: "apt-get update && apt-get install -y ffmpeg && pip install -r requirements.txt"
-    startCommand: "gunicorn app:app"
+    env: docker
     plan: free
