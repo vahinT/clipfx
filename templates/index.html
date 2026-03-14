@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ClipFX Processor</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #09090b;
+      --surface: #18181c;
+      --accent-org: #ff5c2b;
+      --accent-purp: #9b6dff;
+      --text: #ffffff;
+      --text-muted: #a1a1aa;
+      --active-accent: var(--accent-org);
+    }
+    body {
+      margin: 0; font-family: 'DM Sans', sans-serif;
+      background: var(--bg); color: var(--text);
+      display: flex; flex-direction: column; height: 100vh;
+      overflow: hidden;
+    }
+    header {
+      height: 60px; border-bottom: 1px solid #27272a; display: flex;
+      align-items: center; justify-content: space-between; padding: 0 24px;
+      background: var(--bg); z-index: 10;
+    }
+    .logo { font-weight: 700; font-size: 1.2rem; display: flex; align-items: center; gap: 8px;}
+    .tabs { display: flex; height: 100%; }
+    .tab {
+      padding: 0 20px; display: flex; align-items: center; cursor: pointer;
+      color: var(--text-muted); border-bottom: 2px solid transparent;
+      transition: 0.2s; font-weight: 500;
+    }
+    .tab:hover { color: #fff; }
+    .main { display: flex; flex: 1; overflow: hidden; }
+    .sidebar {
+      width: 290px; background: var(--surface); border-right: 1px solid #27272a;
+      padding: 24px; overflow-y: auto; display: flex; flex-direction: column; gap: 20px;
+    }
+    .content {
+      flex: 1; display: flex; flex-direction: column; position: relative;
+    }
+    .preview-area {
+      flex: 1; display: flex; align-items: center; justify-content: center;
+      background: radial-gradient(circle at center, #18181c 0%, #09090b 100%);
+    }
+    .preview-text {
+      color: var(--text-muted); font-family: 'DM Mono', monospace;
+      text-align: center; font-size: 0.9rem; line-height: 1.5;
+    }
+    .bottom-bar {
+      height: 70px; border-top: 1px solid #27272a; background: var(--surface);
+      display: flex; align-items: center; justify-content: space-between; padding: 0 24px;
+    }
+    .dropzone {
+      border: 2px dashed #3f3f46; border-radius: 8px; padding: 30px 15px;
+      text-align: center; color: var(--text-muted); cursor: pointer; transition: 0.2s;
+      position: relative; overflow: hidden; font-size: 0.9rem;
+    }
+    .dropzone:hover { border-color: #52525b; background: rgba(255,255,255,0.02); }
+    .dropzone.dragover { border-color: var(--active-accent); border-style: solid; background: rgba(255,255,255,0.05); }
+    
+    .checkerboard {
+      background-image: linear-gradient(45deg, #27272a 25%, transparent 25%),
+        linear-gradient(-45deg, #27272a 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #27272a 75%),
+        linear-gradient(-45deg, transparent 75%, #27272a 75%);
+      background-size: 20px 20px; background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+    }
+    .divider { text-align: center; font-weight: 700; letter-spacing: 2px; font-size: 0.8rem; }
+    
+    .control-group { display: flex; flex-direction: column; gap: 8px; }
+    .control-group label { font-size: 0.85rem; color: var(--text-muted); display: flex; justify-content: space-between;}
+    
+    input[type=range] { -webkit-appearance: none; width: 100%; background: transparent; }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none; height: 16px; width: 16px; border-radius: 50%;
+      background: var(--active-accent); cursor: pointer; margin-top: -6px;
+    }
+    input[type=range]::-webkit-slider-runnable-track {
+      width: 100%; height: 4px; cursor: pointer; background: #3f3f46; border-radius: 2px;
+    }
+    select {
+      background: #27272a; color: white; border: 1px solid #3f3f46; padding: 8px;
+      border-radius: 6px; font-family: inherit; outline: none;
+    }
+    
+    .btn {
+      background: #27272a; color: #fff; border: 1px solid #3f3f46; padding: 8px 16px;
+      border-radius: 6px; cursor: pointer; font-family: inherit; font-size: 0.85rem; transition: 0.2s;
+    }
+    .btn:hover { background: #3f3f46; }
+    
+    .btn-apply {
+      background: var(--active-accent); color: #fff; border: none; padding: 12px 24px;
+      border-radius: 6px; font-weight: 600; cursor: pointer; transition: 0.2s;
+    }
+    .btn-apply:hover { opacity: 0.9; transform: translateY(-1px); }
+    .btn-apply:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+    
+    .bg-thumbs { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+    .bg-thumb {
+      background: #27272a; padding: 4px 8px; border-radius: 4px; font-size: 0.75rem;
+      display: flex; align-items: center; gap: 6px; border: 1px solid #3f3f46;
+    }
+    .bg-thumb button {
+      background: transparent; border: none; color: #f87171; cursor: pointer; padding: 0; font-size: 1rem; line-height: 1;
+    }
+    
+    .progress-container {
+      width: 100%; height: 3px; background: transparent; position: absolute; top: 0; left: 0; overflow: hidden; display: none;
+    }
+    .progress-bar {
+      width: 30%; height: 100%; background: var(--active-accent); position: absolute; left: -30%;
+      animation: indeterminate 1.5s infinite ease-in-out;
+    }
+    @keyframes indeterminate {
+      0% { left: -30%; width: 30%; }
+      50% { left: 50%; width: 50%; }
+      100% { left: 100%; width: 30%; }
+    }
+    
+    .status { display: flex; align-items: center; gap: 10px; font-family: 'DM Mono', monospace; font-size: 0.85rem; }
+    .orb { width: 10px; height: 10px; border-radius: 50%; background: #52525b; transition: 0.3s;}
+    .orb.ready { background: #22c55e; }
+    .orb.processing { background: var(--active-accent); animation: pulse 1s infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(1.3); } }
+    
+    .toast {
+      position: fixed; top: 20px; right: 20px; background: #27272a; color: white; padding: 12px 20px;
+      border-radius: 8px; border-left: 4px solid #22c55e; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.5);
+      z-index: 100; font-size: 0.9rem; animation: slideIn 0.3s ease;
+    }
+    .toast.error { border-left-color: #ef4444; }
+    @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="logo">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+      ClipFX
+    </div>
+    <div class="tabs">
+      <div class="tab active" data-tab="burn" style="color: var(--accent-org); border-bottom-color: var(--accent-org);">Burn transition</div>
+      <div class="tab" data-tab="freeze">Subject freeze</div>
+    </div>
+    <a href="#" style="color: var(--text-muted); text-decoration: none; font-size: 0.9rem;">GitHub</a>
+  </header>
+
+  <div class="main">
+    <div class="sidebar">
+      <!-- Burn Tab -->
+      <div id="burn-panel" class="panel">
+        <div class="dropzone" id="burn-a">
+          <input type="file" id="burn-a-input" accept="video/*" style="display:none">
+          <span id="burn-a-label">Click or drop Clip A</span>
+        </div>
+        
+        <div class="divider" style="color: var(--accent-org);">🔥 BURN</div>
+        
+        <div class="dropzone" id="burn-b">
+          <input type="file" id="burn-b-input" accept="video/*" style="display:none">
+          <span id="burn-b-label">Click or drop Clip B</span>
+        </div>
+        
+        <div class="control-group">
+          <label>Transition Duration <span><span id="burn-dur-val">1.5</span>s</span></label>
+          <input type="range" id="burn-dur" min="0.5" max="4" step="0.1" value="1.5">
+        </div>
+        
+        <div class="control-group">
+          <label>Style</label>
+          <select id="burn-style">
+            <option value="fadewhite">fadewhite</option>
+            <option value="fade">fade</option>
+            <option value="fadeblack">fadeblack</option>
+            <option value="pixelize">pixelize</option>
+            <option value="radial">radial</option>
+            <option value="circleopen">circleopen</option>
+            <option value="hblur">hblur</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Freeze Tab -->
+      <div id="freeze-panel" class="panel" style="display:none;">
+        <div class="dropzone checkerboard" id="freeze-subject">
+          <input type="file" id="freeze-subject-input" accept="image/png, image/webp" style="display:none">
+          <span id="freeze-subject-label">Drop Subject (PNG/WebP)</span>
+        </div>
+        
+        <div class="control-group">
+          <label>Backgrounds <span id="freeze-bgs-count">0 added</span></label>
+          <button class="btn" onclick="document.getElementById('freeze-bgs-input').click()">+ Add backgrounds</button>
+          <input type="file" id="freeze-bgs-input" multiple accept="image/*,video/*" style="display:none">
+          <div class="bg-thumbs" id="freeze-bgs-list"></div>
+        </div>
+        
+        <div class="control-group" style="margin-top: 10px;">
+          <label>Frames per BG <span><span id="freeze-frames-val">3</span></span></label>
+          <input type="range" id="freeze-frames" min="1" max="12" step="1" value="3">
+        </div>
+        
+        <div class="control-group">
+          <label>Output Duration <span><span id="freeze-dur-val">3</span>s</span></label>
+          <input type="range" id="freeze-dur" min="1" max="10" step="1" value="3">
+        </div>
+      </div>
+    </div>
+
+    <div class="content">
+      <div class="progress-container" id="progress"><div class="progress-bar"></div></div>
+      <div class="preview-area">
+        <div class="preview-text">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#3f3f46" stroke-width="1.5" style="margin-bottom:16px;">
+            <rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"></rect>
+            <line x1="7" y1="2" x2="7" y2="22"></line>
+            <line x1="17" y1="2" x2="17" y2="22"></line>
+            <line x1="2" y1="12" x2="22" y2="12"></line>
+            <line x1="2" y1="7" x2="7" y2="7"></line>
+            <line x1="2" y1="17" x2="7" y2="17"></line>
+            <line x1="17" y1="17" x2="22" y2="17"></line>
+            <line x1="17" y1="7" x2="22" y2="7"></line>
+          </svg><br>
+          Preview unavailable during remote rendering.<br>Configure params on the left and apply.
+        </div>
+      </div>
+      <div class="bottom-bar">
+        <div class="status">
+          <div class="orb" id="status-orb"></div>
+          <span id="status-text">Waiting for files...</span>
+        </div>
+        <button class="btn-apply" id="apply-btn" disabled>Apply & download</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // State
+    let currentTab = 'burn';
+    let burnFiles = { clip_a: null, clip_b: null };
+    let freezeSubject = null;
+    let freezeBgsFiles = [];
+
+    // DOM Elements
+    const statusOrb = document.getElementById('status-orb');
+    const statusText = document.getElementById('status-text');
+    const applyBtn = document.getElementById('apply-btn');
+    const progressBar = document.getElementById('progress');
+
+    // UI Updates
+    function updateStatus() {
+      let isReady = false;
+      if (currentTab === 'burn') isReady = burnFiles.clip_a && burnFiles.clip_b;
+      else isReady = freezeSubject && freezeBgsFiles.length > 0;
+
+      if (statusOrb.classList.contains('processing')) return;
+
+      if (isReady) {
+        statusOrb.className = 'orb ready';
+        statusText.textContent = 'Ready to process';
+        applyBtn.disabled = false;
+      } else {
+        statusOrb.className = 'orb';
+        statusText.textContent = 'Waiting for files...';
+        applyBtn.disabled = true;
+      }
+    }
+
+    function showToast(msg, isError = false) {
+      const toast = document.createElement('div');
+      toast.className = `toast ${isError ? 'error' : ''}`;
+      toast.textContent = msg;
+      document.body.appendChild(toast);
+      setTimeout(() => toast.remove(), 4000);
+    }
+
+    // Tabs
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        if (statusOrb.classList.contains('processing')) return; // lock tabs during processing
+
+        document.querySelectorAll('.tab').forEach(t => {
+          t.style.color = 'var(--text-muted)';
+          t.style.borderBottomColor = 'transparent';
+          t.classList.remove('active');
+        });
+        document.querySelectorAll('.panel').forEach(p => p.style.display = 'none');
+        
+        tab.classList.add('active');
+        const target = tab.dataset.tab;
+        document.getElementById(`${target}-panel`).style.display = 'flex';
+        document.getElementById(`${target}-panel`).style.flexDirection = 'column';
+        document.getElementById(`${target}-panel`).style.gap = '20px';
+        
+        currentTab = target;
+        const color = target === 'burn' ? 'var(--accent-org)' : 'var(--accent-purp)';
+        tab.style.color = color;
+        tab.style.borderBottomColor = color;
+        document.documentElement.style.setProperty('--active-accent', color);
+        
+        updateStatus();
+      });
+    });
+
+    // Sliders
+    const binds = ['burn-dur', 'freeze-frames', 'freeze-dur'];
+    binds.forEach(id => {
+      const el = document.getElementById(id);
+      const valEl = document.getElementById(`${id}-val`);
+      el.addEventListener('input', () => valEl.textContent = el.value);
+    });
+
+    // Dropzone logic
+    function setupDropzone(id, onFile) {
+      const el = document.getElementById(id);
+      const input = document.getElementById(`${id}-input`);
+      
+      el.addEventListener('click', () => input.click());
+      el.addEventListener('dragover', e => { e.preventDefault(); el.classList.add('dragover'); });
+      el.addEventListener('dragleave', () => el.classList.remove('dragover'));
+      el.addEventListener('drop', e => {
+        e.preventDefault(); el.classList.remove('dragover');
+        if (e.dataTransfer.files.length) onFile(e.dataTransfer.files);
+      });
+      input.addEventListener('change', e => {
+        if (e.target.files.length) onFile(e.target.files);
+        input.value = ''; // reset
+      });
+    }
+
+    // Burn Handlers
+    setupDropzone('burn-a', files => {
+      burnFiles.clip_a = files[0];
+      document.getElementById('burn-a-label').textContent = files[0].name;
+      updateStatus();
+    });
+    setupDropzone('burn-b', files => {
+      burnFiles.clip_b = files[0];
+      document.getElementById('burn-b-label').textContent = files[0].name;
+      updateStatus();
+    });
+
+    // Freeze Handlers
+    setupDropzone('freeze-subject', files => {
+      freezeSubject = files[0];
+      const reader = new FileReader();
+      reader.onload = e => {
+        const el = document.getElementById('freeze-subject');
+        el.style.backgroundImage = `url(${e.target.result})`;
+        el.style.backgroundSize = 'contain';
+        el.style.backgroundRepeat = 'no-repeat';
+        el.style.backgroundPosition = 'center';
+        document.getElementById('freeze-subject-label').style.display = 'none';
+      };
+      reader.readAsDataURL(files[0]);
+      updateStatus();
+    });
+
+    document.getElementById('freeze-bgs-input').addEventListener('change', e => {
+      for (let file of e.target.files) {
+        freezeBgsFiles.push(file);
+        const div = document.createElement('div');
+        div.className = 'bg-thumb';
+        div.innerHTML = `<span>${file.name.substring(0, 8)}...</span>`;
+        const rm = document.createElement('button');
+        rm.innerHTML = '×';
+        rm.onclick = () => {
+          freezeBgsFiles = freezeBgsFiles.filter(f => f !== file);
+          div.remove();
+          document.getElementById('freeze-bgs-count').textContent = `${freezeBgsFiles.length} added`;
+          updateStatus();
+        };
+        div.appendChild(rm);
+        document.getElementById('freeze-bgs-list').appendChild(div);
+      }
+      document.getElementById('freeze-bgs-count').textContent = `${freezeBgsFiles.length} added`;
+      updateStatus();
+    });
+
+    // API Processing
+    applyBtn.addEventListener('click', async () => {
+      applyBtn.disabled = true;
+      statusOrb.className = 'orb processing';
+      statusText.textContent = 'Processing server-side...';
+      progressBar.style.display = 'block';
+
+      const formData = new FormData();
+      let endpoint = '';
+      let filename = '';
+
+      if (currentTab === 'burn') {
+        endpoint = '/burn';
+        filename = 'burn_transition.mp4';
+        formData.append('clip_a', burnFiles.clip_a);
+        formData.append('clip_b', burnFiles.clip_b);
+        formData.append('duration', document.getElementById('burn-dur').value);
+        formData.append('style', document.getElementById('burn-style').value);
+      } else {
+        endpoint = '/freeze';
+        filename = 'subject_freeze.mp4';
+        formData.append('subject', freezeSubject);
+        freezeBgsFiles.forEach((file, i) => formData.append(`bg_${i}`, file));
+        formData.append('frames_per_bg', document.getElementById('freeze-frames').value);
+        formData.append('duration', document.getElementById('freeze-dur').value);
+      }
+
+      try {
+        const res = await fetch(endpoint, { method: 'POST', body: formData });
+        
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.detail || errData.error || 'Server processing failed');
+        }
+
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+        
+        showToast('Processing complete! File downloaded.');
+      } catch (err) {
+        showToast(err.message, true);
+        console.error(err);
+      } finally {
+        progressBar.style.display = 'none';
+        updateStatus(); // reset based on current files
+      }
+    });
+  </script>
+</body>
+</html>
