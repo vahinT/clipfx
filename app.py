@@ -68,13 +68,13 @@ def burn():
 
         joined = ffmpeg.filter([a_vid, b_vid], 'xfade', transition=style, duration=duration, offset=offset)
 
-        # Safely map audio if it exists in clip A
+        # Safely map audio if it exists in clip A, AND force yuv420p pixel format
         has_audio = any(s.get('codec_type') == 'audio' for s in probe.get('streams', []))
         if has_audio:
             a_aud = ffmpeg.input(path_a).audio
-            out = ffmpeg.output(joined, a_aud, out_path, vcodec='libx264', preset='ultrafast', crf=23, acodec='aac', shortest=None)
+            out = ffmpeg.output(joined, a_aud, out_path, vcodec='libx264', preset='ultrafast', crf=23, acodec='aac', shortest=None, pix_fmt='yuv420p')
         else:
-            out = ffmpeg.output(joined, out_path, vcodec='libx264', preset='ultrafast', crf=23)
+            out = ffmpeg.output(joined, out_path, vcodec='libx264', preset='ultrafast', crf=23, pix_fmt='yuv420p')
 
         out.run(capture_stdout=True, capture_stderr=True)
 
@@ -154,7 +154,8 @@ def freeze():
 
         final = ffmpeg.overlay(looped_bg, scaled_subj, x='(W-w)/2', y='(H-h)/2', format='auto')
         
-        out = ffmpeg.output(final, out_path, vcodec='libx264', preset='ultrafast', crf=23, t=duration)
+        # Force yuv420p pixel format here too
+        out = ffmpeg.output(final, out_path, vcodec='libx264', preset='ultrafast', crf=23, t=duration, pix_fmt='yuv420p')
         out.run(capture_stdout=True, capture_stderr=True)
 
         with open(out_path, 'rb') as f:
